@@ -40,7 +40,12 @@ def save(df, name):
 #
 # TODO: write the schema of listening_logs.csv as a StructType with four fields:
 #   user_id STRING, song_id STRING, timestamp TIMESTAMP, duration_sec INT
-logs_schema = None
+logs_schema = StructType([
+    StructField("user_id", StringType(), True),
+    StructField("song_id", StringType(), True),
+    StructField("timestamp", TimestampType(), True),
+    StructField("duration_sec", IntegerType(), True),
+])
 
 # The schema of songs_metadata.csv, as a DDL string (the other form from the slides).
 songs_schema = "song_id STRING, title STRING, artist STRING, genre STRING, mood STRING"
@@ -65,7 +70,18 @@ def task1_favorite_genre():
     row_number() over Window.partitionBy("user_id").orderBy(...) does that in one step.
     """
     # TODO
-    return None
+    counts = plays.groupBy("user_id", "genre").agg(
+        count("*").alias("play_count")
+    )
+    ranking = Window.partitionBy("user_id").orderBy(
+        desc("play_count"), col("genre")
+    )
+    return (
+        counts.withColumn("rank", row_number().over(ranking))
+        .filter(col("rank") == 1)
+        .select("user_id", "genre", "play_count")
+        .orderBy("user_id")
+    )
 
 
 # ---------------------------------------------------------------- Task 2
@@ -76,7 +92,15 @@ def task2_average_listen_time():
     Ordered by avg_duration_sec descending.
     """
     # TODO
-    return None
+    return (
+        logs.join(songs.select("song_id", "title"), "song_id")
+        .groupBy("song_id", "title")
+        .agg(
+            sround(avg("duration_sec"), 2).alias("avg_duration_sec"),
+            count("*").alias("play_count"),
+        )
+        .orderBy(desc("avg_duration_sec"), "song_id")
+    )
 
 
 # ---------------------------------------------------------------- Task 3
@@ -90,7 +114,24 @@ def task3_genre_loyalty(favorite):
     `favorite` is the DataFrame returned by task 1; join it with the total plays per user.
     """
     # TODO
-    return None
+    totals = logs.groupBy("user_id").agg(
+        count("*").alias("total_plays")
+    )
+    return (
+        favorite.join(totals, "user_id")
+        .withColumn(
+            "loyalty_score",
+            sround(col("play_count") / col("total_plays"), 3),
+        )
+        .select(
+            "user_id", "genre", "play_count",
+            "total_plays", "loyalty_score",
+        )
+        .orderBy(
+            desc("loyalty_score"), desc("total_plays"), "user_id"
+        )
+        .limit(10)
+    )
 
 
 # ---------------------------------------------------------------- Task 4
@@ -102,8 +143,12 @@ def task4_night_owls():
     Hint: hour("timestamp") works because the column is a timestamp, not a string.
     """
     # TODO
-    return None
-
+    return (
+        logs.filter(hour("timestamp").between(0, 4))
+        .groupBy("user_id")
+        .agg(count("*").alias("night_plays"))
+        .orderBy(desc("night_plays"), "user_id")
+    )
 
 favorite = task1_favorite_genre()
 save(favorite, "task1")
