@@ -47,7 +47,7 @@ user_16,Rock,10
 user_17,Jazz,4
 ```
 
-Among these first ten users in `user_id` order, Pop and Classical each appear four times as the favorite genre. `user_16` has the largest favorite-genre count in this sample, with 10 Rock plays.
+Among these first ten users in user_id order, Classical appears four times and Pop three times as the favorite genre. user_16 has the largest favorite-genre count in this sample, with 10 Rock plays.
 
 ### Task 2: average listening time per song
 
